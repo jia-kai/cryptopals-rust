@@ -15,11 +15,12 @@ pub struct Binary {
 }
 
 impl Binary {
+    /* ------------ constructors ------------ */
     pub fn new() -> Binary {
         Self::from_data(Vec::new())
     }
 
-    pub fn from_data(data: Vec<u8>)  -> Binary {
+    pub fn from_data(data: Vec<u8>) -> Binary {
         Binary { data: data }
     }
 
@@ -31,12 +32,44 @@ impl Binary {
         }
     }
 
+    /* ------------ accessors ------------ */
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    pub fn raw_data(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    /* ------------ convert ------------ */
     pub fn to_base64(&self) -> String {
         self.data.to_base64(base64::STANDARD)
     }
 
     pub fn to_hex(&self) -> String {
         self.data.to_hex()
+    }
+
+    /// convert to string by interpreting the content as utf8
+    pub fn to_str_utf8(&self) -> Result<String, CryptoError> {
+        match String::from_utf8(self.data.clone()) {
+            Ok(s) => Ok(s),
+            Err(err) => Err(CryptoError::from_msg(
+                    format!("failed to convert string: {}", err).as_str()))
+        }
+    }
+
+    /* ------------ features ------------ */
+    /// get number of occurrences for each char
+    ///
+    /// # Return value
+    /// a vector of exactly 256 elements
+    pub fn histogram(&self) -> Vec<usize> {
+        let mut ret = vec![0usize; 256];
+        for i in &self.data {
+            ret[*i as usize] += 1;
+        }
+        ret
     }
 }
 
@@ -49,6 +82,15 @@ impl<'a, 'b> BitXor<&'b Binary> for &'a Binary {
             self.data.iter().zip(rhs.data.iter())
             .map(|(x, y)| x ^ y)
             .collect::<Vec<_>>())
+    }
+}
+
+impl<'a> BitXor<u8> for &'a Binary {
+    type Output = Binary;
+
+    fn bitxor(self, rhs: u8) -> Binary {
+        Binary::from_data(
+            self.data.iter().map(|x| x ^ rhs).collect::<Vec<_>>())
     }
 }
 
