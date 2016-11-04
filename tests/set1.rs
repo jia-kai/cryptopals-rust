@@ -1,5 +1,8 @@
 extern crate cryptopals;
 use self::cryptopals::binary::Binary;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::BufRead;
 
 #[test]
 fn ch01() {
@@ -51,4 +54,43 @@ fn ch03() {
     }
     println!("max_nr_alpha={} plain={}", max_nr_alpha,
              best_plain.to_str_utf8().unwrap());
+}
+
+#[test]
+fn ch04() {
+    let mut reader = BufReader::new(File::open("res/ch04.txt").unwrap());
+    let mut line = String::new();
+
+    let mut max_nr_alpha = 0usize;
+    let mut best_plain = Binary::new();
+    let mut best_line_num = -1;
+    let mut cur_plain: Binary;
+    let mut line_num = 0;
+    loop {
+        if reader.read_line(&mut line).unwrap() == 0 {
+            break;
+        }
+        let msg = Binary::from_hex(line.trim()).unwrap();
+        line_num += 1;
+
+        for secret_ in 0..256 {
+            let secret = secret_ as u8;
+            cur_plain = &msg ^ secret;
+            let nr_alpha = cur_plain.raw_data().iter()
+                .filter(|x| {
+                    let ch = **x as char;
+                    ch == ' ' || ch.is_alphabetic()
+                })
+            .count();
+
+            if nr_alpha > max_nr_alpha {
+                max_nr_alpha = nr_alpha;
+                best_plain = cur_plain;
+                best_line_num = line_num;
+            }
+        }
+        line.clear();
+    }
+    println!("max_nr_alpha={} plain={} line={}", max_nr_alpha,
+             best_plain.to_str_utf8().unwrap(), best_line_num);
 }
