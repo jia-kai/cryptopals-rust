@@ -19,16 +19,16 @@ pub struct Binary {
 impl Binary {
     /* ------------ constructors ------------ */
     pub fn new() -> Binary {
-        Self::from_data(Vec::new())
+        Self::from_bytes(Vec::new())
     }
 
-    pub fn from_data(data: Vec<u8>) -> Binary {
+    pub fn from_bytes(data: Vec<u8>) -> Binary {
         Binary { data: data }
     }
 
     pub fn from_hex(hex: &str) -> Result<Binary, CryptoError> {
         match hex.from_hex() {
-            Ok(data) => Ok(Self::from_data(data)),
+            Ok(data) => Ok(Self::from_bytes(data)),
             Err(err) => Err(CryptoError::from_msg(
                     format!("failed to convert from hex: {}", err).as_str()))
         }
@@ -143,7 +143,7 @@ impl<'a, T> BitXor<T> for &'a Binary where T: BinaryIter {
     type Output = Binary;
 
     fn bitxor(self, rhs: T) -> Binary {
-        let ret = Binary::from_data(
+        let ret = Binary::from_bytes(
             self.data.iter()
             .zip(rhs.biter())
             .map(|(x, y)| x ^ y)

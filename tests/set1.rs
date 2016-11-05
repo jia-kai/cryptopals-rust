@@ -1,5 +1,5 @@
 extern crate cryptopals;
-use self::cryptopals::binary::Binary;
+use self::cryptopals::binary::{Binary, BinaryIterMaker};
 use std::fs::File;
 use std::io::BufReader;
 use std::io::BufRead;
@@ -93,4 +93,17 @@ fn ch04() {
     }
     println!("max_nr_alpha={} plain={} line={}", max_nr_alpha,
              best_plain.to_str_utf8().unwrap(), best_line_num);
+}
+
+#[test]
+fn ch05() {
+    let mut data = Binary::from_bytes(
+        "Burning 'em, if you ain't quick and nimble\n\
+        I go crazy when I hear a cymbal".to_string().into_bytes());
+    data ^= BinaryIterMaker::new(
+        "ICE".to_string().into_bytes().into_iter().cycle());
+    let ans = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d\
+        63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2\
+        b2027630c692b20283165286326302e27282f";
+    assert_eq!(data.to_hex(), ans);
 }
