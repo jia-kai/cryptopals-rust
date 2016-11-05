@@ -25,7 +25,7 @@ fn ch02() {
                 &Binary::from_hex(b).unwrap()).to_hex(), c);
 
     // test BitXorAssign
-    let mut t = &mut Binary::from_hex(a).unwrap();
+    let mut t = Binary::from_hex(a).unwrap();
     t ^= &Binary::from_hex(b).unwrap();
     assert_eq!(t.to_hex(), c);
 }

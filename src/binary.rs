@@ -9,6 +9,8 @@ use self::rustc_serialize::base64::{self, ToBase64};
 use self::rustc_serialize::hex::{FromHex, ToHex};
 
 use std::ops::{BitXor, BitXorAssign};
+use std::iter;
+use std::slice;
 
 pub struct Binary {
     data: Vec<u8>
@@ -59,7 +61,7 @@ impl Binary {
         }
     }
 
-    /* ------------ features ------------ */
+    /* ------------ computations ------------ */
     /// get number of occurrences for each char
     ///
     /// # Return value
@@ -73,34 +75,93 @@ impl Binary {
     }
 }
 
-impl<'a, 'b> BitXor<&'b Binary> for &'a Binary {
-    type Output = Binary;
+// a better impl could utilize BIter = iter::Map<I, F>, but I just can not get
+// the correct type for F, since:
+//  0. rust lacks auto type deduce
+//  1. lambdas have anonymous types and can not be used here
+//  2. impl Fn<(&u8), u8> for custom proxy struct, but rustc fails by saying
+//     format of `Fn`-family traits is unstable and refers to #29625
 
-    fn bitxor(self, rhs: &'b Binary) -> Binary {
-        assert_eq!(self.data.len(), rhs.data.len());
-        Binary::from_data(
-            self.data.iter().zip(rhs.data.iter())
-            .map(|(x, y)| x ^ y)
-            .collect::<Vec<_>>())
-    }
+/// maps Iterator<&u8> to Iterator<u8>, equivalent to iter.map(|x| *x), but
+/// with an explicit type name
+pub struct U8IterRefRm<T> {
+    iter: T
 }
 
-impl<'a> BitXor<u8> for &'a Binary {
-    type Output = Binary;
-
-    fn bitxor(self, rhs: u8) -> Binary {
-        Binary::from_data(
-            self.data.iter().map(|x| x ^ rhs).collect::<Vec<_>>())
-    }
-}
-
-impl<'a, 'b> BitXorAssign<&'b Binary> for &'a mut Binary {
-    fn bitxor_assign(&mut self, rhs: &'b Binary) {
-        let len = self.data.len();
-        assert_eq!(len, rhs.data.len());
-        let mut data = &mut self.data;
-        for i in 0..len {
-            data[i] ^= rhs.data[i];
+impl<'a, T> Iterator for U8IterRefRm<T>
+        where T: Iterator<Item=&'a u8> {
+    type Item = u8;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(v) => Some(*v),
+            None    => None
         }
     }
 }
+
+/// a binary stream
+pub trait BinaryIter {
+    type BIter: Iterator<Item=u8>;
+
+    fn biter(self) -> Self::BIter;
+}
+
+impl<'a> BinaryIter for &'a Binary {
+    type BIter = U8IterRefRm<slice::Iter<'a, u8>>;
+
+    fn biter(self) -> Self::BIter {
+         U8IterRefRm { iter: self.data.iter() }
+    }
+}
+
+impl BinaryIter for u8 {
+    type BIter = iter::Repeat<u8>;
+    fn biter(self) -> Self::BIter {
+        iter::repeat(self)
+    }
+}
+
+pub struct BinaryIterMaker<T> where T: Iterator<Item=u8> {
+    iter: T
+}
+
+impl<T> BinaryIterMaker<T> where T: Iterator<Item=u8> {
+    pub fn new(iter: T) -> BinaryIterMaker<T> {
+        BinaryIterMaker { iter: iter }
+    }
+}
+
+impl<T> BinaryIter for BinaryIterMaker<T> where T: Iterator<Item=u8> {
+    type BIter = T;
+    fn biter(self) -> Self::BIter {
+        self.iter
+    }
+}
+
+/// xor with an iterator of u8
+impl<'a, T> BitXor<T> for &'a Binary where T: BinaryIter {
+    type Output = Binary;
+
+    fn bitxor(self, rhs: T) -> Binary {
+        let ret = Binary::from_data(
+            self.data.iter()
+            .zip(rhs.biter())
+            .map(|(x, y)| x ^ y)
+            .collect::<Vec<_>>());
+        assert_eq!(ret.len(), self.data.len());
+        ret
+    }
+}
+
+/// xor_assign with an iterator of u8
+impl<T> BitXorAssign<T> for Binary where T: BinaryIter {
+    fn bitxor_assign(&mut self, rhs: T) {
+        let len = self.data.len();
+        let mut data = &mut self.data;
+        let mut riter = rhs.biter();
+        for i in 0..len {
+            data[i] ^= riter.next().unwrap();
+        }
+    }
+}
+
