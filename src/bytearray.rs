@@ -8,20 +8,27 @@ use super::error::CryptoError;
 use self::rustc_serialize::base64::{self, FromBase64, ToBase64};
 use self::rustc_serialize::hex::{FromHex, ToHex};
 
-use std::ops::{BitXor, BitXorAssign};
+use std::ops::{BitXor, BitXorAssign, Index, IndexMut};
 use std::iter;
 use std::slice;
 
 /// algorithms on binary data
-pub trait BinaryAlgo {
+pub trait BinaryAlgo<'s> {
 
     /* ------------ abstract methods ------------ */
-    fn as_slice(&self) -> &[u8];
+    fn as_slice(&self) -> &'s [u8];
 
     /* ------------ accessors ------------ */
     #[inline]
     fn len(&self) -> usize {
         self.as_slice().len()
+    }
+
+    // we can not use the Index ops because it requires a reference return type
+    #[inline]
+    fn index<T>(&self, idx: T) -> ByteArrayView<'s>
+            where [u8]: Index<T, Output=[u8]> {
+        ByteArrayView::new(self.as_slice().index(idx))
     }
 
     /* ------------ convert ------------ */
@@ -45,21 +52,28 @@ pub trait BinaryAlgo {
     /* ------------ computations ------------ */
 
     fn xor<T: ByteIter>(&self, rhs: T) -> ByteArray {
-        let ret = ByteArray::from_bytes(
+        let ret = &ByteArray::from_bytes(
             self.as_slice().iter()
             .zip(rhs.biter())
             .map(|(x, y)| x ^ y)
             .collect::<Vec<_>>());
         assert_eq!(ret.len(), self.len());
-        ret
+        *ret
     }
 }
 
 /// algorithms for mutable binary data
-pub trait MutBinaryAlgo: BinaryAlgo {
+pub trait MutBinaryAlgo<'s>: BinaryAlgo<'s> {
     /* ------------ abstract methods ------------ */
 
-    fn as_mut_slice(&mut self) -> &mut [u8];
+    fn as_mut_slice(&self) -> &'s mut [u8];
+
+    /* ------------ accessors ------------ */
+    #[inline]
+    fn index_mut<T>(&mut self, idx: T) -> MutByteArrayView<'s>
+            where [u8]: IndexMut<T, Output=[u8]> {
+        MutByteArrayView::new(self.as_mut_slice().index_mut(idx))
+    }
 
     /* ------------ computations ------------ */
     fn xor_assign<T: ByteIter>(&mut self, rhs: T) {
@@ -72,15 +86,13 @@ pub trait MutBinaryAlgo: BinaryAlgo {
     }
 }
 
-/// byte array that owns the data
-pub struct ByteArray {
-    data: Vec<u8>
+/// a byte array
+pub struct ByteArrayBase<T> {
+    data: T
 }
 
-/// lightweight ByteArray containing slice of another ByteArray
-pub struct ByteArrayView<'a> {
-    data: &'a [u8]
-}
+/// byte array that owns the data exclusively
+pub type ByteArray = ByteArrayBase<Vec<u8>>;
 
 impl ByteArray {
     /* ------------ constructors ------------ */
@@ -110,15 +122,46 @@ impl ByteArray {
     }
 }
 
-impl BinaryAlgo for ByteArray {
+impl<'a> BinaryAlgo<'a> for ByteArray {
     fn as_slice(&self) -> &[u8] {
         self.data.as_slice()
     }
 }
 
-impl MutBinaryAlgo for ByteArray {
-    fn as_mut_slice(&mut self) -> &mut [u8] {
-        self.data.as_mut_slice()
+
+/// a lightweight ByteArray view
+pub type ByteArrayView<'a> = ByteArrayBase<&'a [u8]>;
+
+impl<'a> ByteArrayView<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        ByteArrayView { data: data }
+    }
+}
+
+impl<'a> BinaryAlgo<'a> for ByteArrayView<'a> {
+    fn as_slice(&self) -> &'a [u8] {
+        self.data
+    }
+}
+
+/// lightweight mutable ByteArray containing slice of another ByteArray
+pub type MutByteArrayView<'a> = ByteArrayBase<&'a mut [u8]>;
+
+impl<'a> MutByteArrayView<'a> {
+    pub fn new(data: &'a mut [u8]) -> Self {
+        MutByteArrayView { data: data }
+    }
+}
+
+impl<'a> BinaryAlgo<'a> for MutByteArrayView<'a> {
+    fn as_slice(&self) -> &'a [u8] {
+        self.data
+    }
+}
+
+impl<'a> MutBinaryAlgo<'a> for MutByteArrayView<'a> {
+    fn as_mut_slice(&self) -> &'a mut [u8] {
+        self.data
     }
 }
 
@@ -128,6 +171,8 @@ impl MutBinaryAlgo for ByteArray {
 //  1. lambdas have anonymous types and can not be used here
 //  2. impl Fn<(&u8), u8> for custom proxy struct, but rustc fails by saying
 //     format of `Fn`-family traits is unstable and refers to #29625
+//  we need to wait for impl Trait
+//  (https://github.com/rust-lang/rfcs/pull/1522#issuecomment-228895459)
 
 /// maps Iterator<&u8> to Iterator<u8>, equivalent to iter.map(|x| *x), but
 /// with an explicit type name
@@ -196,9 +241,12 @@ impl<T> ByteIter for ByteIterMaker<T> where T: Iterator<Item=u8> {
 }
 
 // operator impls
-impl<'a, T> BitXor<T> for &'a ByteArray where T: ByteIter {
+impl<'a, 'b, LT, R> BitXor<R> for &'a ByteArrayBase<LT> where
+        ByteArrayBase<LT>: BinaryAlgo<'b>,
+        R: ByteIter {
     type Output = ByteArray;
-    fn bitxor(self, rhs: T) -> Self::Output {
+    #[inline]
+    fn bitxor(self, rhs: R) -> Self::Output {
         self.xor(rhs)
     }
 }
@@ -208,4 +256,11 @@ impl<T> BitXorAssign<T> for ByteArray where T: ByteIter {
         self.xor_assign(rhs)
     }
 }
+
+impl<'a, T> BitXorAssign<T> for MutByteArrayView<'a> where T: ByteIter {
+    fn bitxor_assign(&mut self, rhs: T) {
+        self.xor_assign(rhs)
+    }
+}
+
 
