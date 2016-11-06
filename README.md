@@ -4,7 +4,7 @@ My solutions to [the cryptopals crypto challenges](https://cryptopals.com/).
 
 This is also a practice for rust, so the code does not represent good practice.
 
-## Why this project is abandoned?
+## Why is this project abandoned?
 
 I set out to learn some interesting and useful new programming language,
 meanwhile solving the crypto challenges. Rust seemed like a good choice.
