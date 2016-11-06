@@ -1,8 +1,7 @@
 extern crate cryptopals;
-use self::cryptopals::binary::{Binary, BinaryIterMaker};
+use self::cryptopals::bytearray::{ByteArray, ByteIterMaker, BinaryAlgo};
 use std::fs::File;
-use std::io::BufReader;
-use std::io::BufRead;
+use std::io::{Read, BufReader, BufRead};
 
 #[test]
 fn ch01() {
@@ -11,7 +10,7 @@ fn ch01() {
               5206120706f69736f6e6f7573206d757368726f6f6d";
     let out = "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzI\
                G11c2hyb29t";
-    assert_eq!(Binary::from_hex(inp).unwrap().to_base64(), out);
+    assert_eq!(ByteArray::from_hex(inp).unwrap().to_base64(), out);
 }
 
 
@@ -21,26 +20,26 @@ fn ch02() {
     let b = "686974207468652062756c6c277320657965";
     let c = "746865206b696420646f6e277420706c6179";
 
-    assert_eq!((&Binary::from_hex(a).unwrap() ^
-                &Binary::from_hex(b).unwrap()).to_hex(), c);
+    assert_eq!((&ByteArray::from_hex(a).unwrap() ^
+                &ByteArray::from_hex(b).unwrap()).to_hex(), c);
 
     // test BitXorAssign
-    let mut t = Binary::from_hex(a).unwrap();
-    t ^= &Binary::from_hex(b).unwrap();
+    let mut t = ByteArray::from_hex(a).unwrap();
+    t ^= &ByteArray::from_hex(b).unwrap();
     assert_eq!(t.to_hex(), c);
 }
 
 #[test]
 fn ch03() {
-    let msg = Binary::from_hex("1b37373331363f78151b7f2b783431333d78397828372\
+    let msg = ByteArray::from_hex("1b37373331363f78151b7f2b783431333d78397828372\
                                d363c78373e783a393b3736").unwrap();
     let mut max_nr_alpha = 0usize;
-    let mut best_plain = Binary::new();
-    let mut cur_plain: Binary;
+    let mut best_plain = ByteArray::new();
+    let mut cur_plain: ByteArray;
     for secret_ in 0..256 {
         let secret = secret_ as u8;
         cur_plain = &msg ^ secret;
-        let nr_alpha = cur_plain.raw_data().iter()
+        let nr_alpha = cur_plain.as_slice().iter()
             .filter(|x| {
                 let ch = **x as char;
                 ch == ' ' || ch.is_alphabetic()
@@ -62,21 +61,21 @@ fn ch04() {
     let mut line = String::new();
 
     let mut max_nr_alpha = 0usize;
-    let mut best_plain = Binary::new();
+    let mut best_plain = ByteArray::new();
     let mut best_line_num = -1;
-    let mut cur_plain: Binary;
+    let mut cur_plain: ByteArray;
     let mut line_num = 0;
     loop {
         if reader.read_line(&mut line).unwrap() == 0 {
             break;
         }
-        let msg = Binary::from_hex(line.trim()).unwrap();
+        let msg = ByteArray::from_hex(line.trim()).unwrap();
         line_num += 1;
 
         for secret_ in 0..256 {
             let secret = secret_ as u8;
             cur_plain = &msg ^ secret;
-            let nr_alpha = cur_plain.raw_data().iter()
+            let nr_alpha = cur_plain.as_slice().iter()
                 .filter(|x| {
                     let ch = **x as char;
                     ch == ' ' || ch.is_alphabetic()
@@ -97,13 +96,20 @@ fn ch04() {
 
 #[test]
 fn ch05() {
-    let mut data = Binary::from_bytes(
+    let mut data = ByteArray::from_bytes(
         "Burning 'em, if you ain't quick and nimble\n\
         I go crazy when I hear a cymbal".to_string().into_bytes());
-    data ^= BinaryIterMaker::new(
+    data ^= ByteIterMaker::new(
         "ICE".to_string().into_bytes().into_iter().cycle());
     let ans = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d\
         63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2\
         b2027630c692b20283165286326302e27282f";
     assert_eq!(data.to_hex(), ans);
+}
+
+#[test]
+fn ch06() {
+    let mut data = String::new();
+    File::open("res/ch06.txt").unwrap().read_to_string(&mut data).unwrap();
+    let data = ByteArray::from_base64(&data).unwrap();
 }

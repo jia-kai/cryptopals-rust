@@ -2,4 +2,4 @@
 //! challanges
 
 pub mod error;
-pub mod binary;
+pub mod bytearray;
