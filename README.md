@@ -25,9 +25,9 @@ Specifically, I also found the following defects (or features):
    example, `impl<T:S> ::std::ops::Add<i32> for T` for some local trait `S`). So
    I can not write several structs and impl some std trait for them in a unified
    way.
-3. Rust lacks auto return type deduction like in C++14, forcing my to write a
-   `U8IterRefRm` in [bytearray.rs](src/bytearray.rs).  Luckily, a relevant RFC
-   for `impl Trait` has recently been
+3. Rust lacks auto return type deduction like `decltype(auto)` in C++14,
+   forcing my to write a `U8IterRefRm` in [bytearray.rs](src/bytearray.rs).
+   Luckily, a relevant RFC for `impl Trait` has recently been
    [merged](https://github.com/rust-lang/rfcs/pull/1522#issuecomment-228895459)
    (but it still can not solve my case).
 4. It's sometimes difficult to manage lifetime; see my
@@ -35,12 +35,12 @@ Specifically, I also found the following defects (or features):
 
 In summary, rust concepts like explicit ownership, lifetime parameters and
 enforced move-assignment are interesting and inspiring. The document is also
-well-organized and effective to search/browse. However I think some of them are
-overemphasized and get in the way of writing concise code or code that even
-*compiles*. In these days I spent most of my time fighting with the compiler
-or skimming unresolved RFCs/issues, and had little time for thinking about the
-problem that I want to solve. It is fun to learn, but not productive enough for
-me in real-world projects.
+well-organized and effective to search/browse. However I think some of the
+design considerations are overemphasized and get in the way of writing concise
+code or code that even *compiles*. In these days I spent most of my time
+fighting with the compiler or skimming unresolved RFCs/issues, and had little
+time for actually thinking about the problem that I want to solve. It is fun to
+learn, but not productive enough for me in real-world projects.
 
 So, I still can not find an alternative for the C++/python combination. And I am
 going to continue on cryptopals with python :)
