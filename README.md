@@ -26,7 +26,7 @@ Specifically, I also found the following defects (or features):
    I can not write several structs and impl some std trait for them in a unified
    way.
 3. Rust lacks auto return type deduction like `decltype(auto)` in C++14,
-   forcing my to write a `U8IterRefRm` in [bytearray.rs](src/bytearray.rs).
+   forcing me to write a `U8IterRefRm` in [bytearray.rs](src/bytearray.rs).
    Luckily, a relevant RFC for `impl Trait` has recently been
    [merged](https://github.com/rust-lang/rfcs/pull/1522#issuecomment-228895459)
    (but it still can not solve my case).

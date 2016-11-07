@@ -13,35 +13,35 @@ use std::iter;
 use std::slice;
 
 /// algorithms on binary data
-pub trait BinaryAlgo<'s> {
+pub trait BinaryAlgo<'s, 'r> {
 
     /* ------------ abstract methods ------------ */
-    fn as_slice(&self) -> &'s [u8];
+    fn as_slice(&'s self) -> &'r [u8];
 
     /* ------------ accessors ------------ */
     #[inline]
-    fn len(&self) -> usize {
+    fn len(&'s self) -> usize {
         self.as_slice().len()
     }
 
     // we can not use the Index ops because it requires a reference return type
     #[inline]
-    fn index<T>(&self, idx: T) -> ByteArrayView<'s>
+    fn index<T>(&'s self, idx: T) -> ByteArrayView<'r>
             where [u8]: Index<T, Output=[u8]> {
         ByteArrayView::new(self.as_slice().index(idx))
     }
 
     /* ------------ convert ------------ */
-    fn to_base64(&self) -> String {
+    fn to_base64(&'s self) -> String {
         self.as_slice().to_base64(base64::STANDARD)
     }
 
-    fn to_hex(&self) -> String {
+    fn to_hex(&'s self) -> String {
         self.as_slice().to_hex()
     }
 
     /// convert to string by interpreting the content as utf8
-    fn to_str_utf8(&self) -> Result<String, CryptoError> {
+    fn to_str_utf8(&'s self) -> Result<String, CryptoError> {
         match String::from_utf8(self.as_slice().to_vec()) {
             Ok(s) => Ok(s),
             Err(err) => Err(CryptoError::from_msg(
@@ -51,7 +51,7 @@ pub trait BinaryAlgo<'s> {
 
     /* ------------ computations ------------ */
 
-    fn xor<T: ByteIter>(&self, rhs: T) -> ByteArray {
+    fn xor<T: ByteIter>(&'s self, rhs: T) -> ByteArray {
         let ret = &ByteArray::from_bytes(
             self.as_slice().iter()
             .zip(rhs.biter())
@@ -63,20 +63,20 @@ pub trait BinaryAlgo<'s> {
 }
 
 /// algorithms for mutable binary data
-pub trait MutBinaryAlgo<'s>: BinaryAlgo<'s> {
+pub trait MutBinaryAlgo<'s, 'r>: BinaryAlgo<'s, 'r> {
     /* ------------ abstract methods ------------ */
 
-    fn as_mut_slice(&self) -> &'s mut [u8];
+    fn as_mut_slice(&'s self) -> &'r mut [u8];
 
     /* ------------ accessors ------------ */
     #[inline]
-    fn index_mut<T>(&mut self, idx: T) -> MutByteArrayView<'s>
+    fn index_mut<T>(&'s mut self, idx: T) -> MutByteArrayView<'r>
             where [u8]: IndexMut<T, Output=[u8]> {
         MutByteArrayView::new(self.as_mut_slice().index_mut(idx))
     }
 
     /* ------------ computations ------------ */
-    fn xor_assign<T: ByteIter>(&mut self, rhs: T) {
+    fn xor_assign<T: ByteIter>(&'s mut self, rhs: T) {
         let len = self.len();
         let data = self.as_mut_slice();
         let mut riter = rhs.biter();
@@ -122,7 +122,7 @@ impl ByteArray {
     }
 }
 
-impl<'a> BinaryAlgo<'a> for ByteArray {
+impl<'a> BinaryAlgo<'a, 'a> for ByteArray {
     fn as_slice(&self) -> &[u8] {
         self.data.as_slice()
     }
@@ -138,8 +138,8 @@ impl<'a> ByteArrayView<'a> {
     }
 }
 
-impl<'a> BinaryAlgo<'a> for ByteArrayView<'a> {
-    fn as_slice(&self) -> &'a [u8] {
+impl<'s, 'r> BinaryAlgo<'s, 'r> for ByteArrayView<'r> {
+    fn as_slice(&'s self) -> &'r [u8] {
         self.data
     }
 }
@@ -153,14 +153,14 @@ impl<'a> MutByteArrayView<'a> {
     }
 }
 
-impl<'a> BinaryAlgo<'a> for MutByteArrayView<'a> {
-    fn as_slice(&self) -> &'a [u8] {
+impl<'s, 'r> BinaryAlgo<'s, 'r> for MutByteArrayView<'r> {
+    fn as_slice(&'s self) -> &'r [u8] {
         self.data
     }
 }
 
-impl<'a> MutBinaryAlgo<'a> for MutByteArrayView<'a> {
-    fn as_mut_slice(&self) -> &'a mut [u8] {
+impl<'s, 'r> MutBinaryAlgo<'s, 'r> for MutByteArrayView<'r> {
+    fn as_mut_slice(&'s self) -> &'r mut [u8] {
         self.data
     }
 }
@@ -241,8 +241,8 @@ impl<T> ByteIter for ByteIterMaker<T> where T: Iterator<Item=u8> {
 }
 
 // operator impls
-impl<'a, 'b, LT, R> BitXor<R> for &'a ByteArrayBase<LT> where
-        ByteArrayBase<LT>: BinaryAlgo<'b>,
+impl<'a, 'b, 'c, LT, R> BitXor<R> for &'a ByteArrayBase<LT> where
+        ByteArrayBase<LT>: BinaryAlgo<'b, 'c>,
         R: ByteIter {
     type Output = ByteArray;
     #[inline]
